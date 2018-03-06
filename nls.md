@@ -2,9 +2,9 @@
 title:      'The NLS Framework'
 author:
  - Trevor Perrin (noise@trevp.net)
-revision:   '0'
+revision:   '1'
 status:     'unofficial/unstable'
-date:       '2018-03-04'
+date:       '2018-03-05'
 link-citations: 'true'
 ---
 
@@ -27,16 +27,14 @@ The Noise architecture can be viewed as three layers:
 
 Combinining all these layers gives us an expanded framework such as NLS ("NoiseLingoSocket").
 
-Below we define the NoiseLingo language, the NLS framework based on it, and the notion of profiles based on NLS.  Finally, we define a set of basic profiles for NLS (NoiseLink, NoiseZeroLink, NoiseShortLink, NoiseAnonBox, and NoiseAuthBox).
+Below we define the NoiseLingo language, the NLS framework based on it, and the notion of profiles based on NLS.  Finally, we define a set of basic profiles for NLS (NoiseLink, NoiseZeroLink, NoiseTinyLink, NoiseAnonBox, and NoiseAuthBox).
 
 
 # 3.  The NoiseLingo negotiation language
 
 ## 3.1. NoiseLingo overview
 
-NoiseLingo defines fields which can be used in negotiation data and handshake payloads for the first three messages between initiator and responder (here called Request1, Response1, and Request2).
-
-It's unlikely that any protocol will use all of these fields.  Instead, **profiles** of NoiseLingo will use a subset of these fields.
+NoiseLingo defines fields which can be used in negotiation data and handshake payloads.  It's unlikely that any protocol will use all of these fields.  Instead, **profiles** of NoiseLingo will use a subset of these fields.
 
 ## 3.2. NoiseLingo definitions
 
@@ -44,8 +42,9 @@ The NoiseLingo message contents are below, described and encoded using the proto
 
 \newpage
 
+The negotiation data for the initial message and its response are below:
 ```
-message NoiseLingoNegotiationDataRequest1 {
+message NoiseLingoNegotiationDataRequest {
   string server_name = 1;
   string initial_protocol = 2;
   repeated string switch_protocol = 3;
@@ -54,34 +53,24 @@ message NoiseLingoNegotiationDataRequest1 {
   bytes psk_id = 6;
 }
 
-message NoiseLingoHandshakePayloadRequest1 {
-  string server_name = 1;
-  repeated string evidence_request_type = 2;
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
-  NoiseLingoTransportOptions transport_options = 5;
-  bytes psk_id = 6;
-}
-
-message NoiseLingoNegotiationDataResponse1 {
+message NoiseLingoNegotiationDataResponse {
   oneof response {
     string switch_protocol = 3;
     string retry_protocol = 4;
     bool rejected = 5;
   }
 }
+```
 
-message NoiseLingoHandshakePayloadResponse1 {
-  repeated string evidence_request_type = 2;
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
-  NoiseLingoTransportOptions transport_options = 5; 
-}
+Each handshake payload can use some subset of the following fields:
 
-message NoiseLingoHandshakePayloadRequest2 {
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
-  NoiseLingoTransportOptions transport_options = 5; 
+```
+message NoiseLingoHandshakePayload {
+  repeated string evidence_request_type = 1;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+  bytes psk_id = 4;
+  NoiseLingoTransportOptions transport_options = 5;
 }
 
 message NoiseLingoTransportOptions {
@@ -90,31 +79,32 @@ message NoiseLingoTransportOptions {
   bool continuous_rekey = 3;
   bool short_terminated = 4;
 }
+
 ```
 
 ## 3.3. NoiseLingo notes
 
-NoiseLingo is designed to allow independent negotiation of Noise protocols, which PSK (if any) to use, evidence for static public keys (e.g. certificates), and transport options.
-
-NoiseLingo only uses field numbers in the range 1-6.  Field numbers 7-10 are reserved for future use by NoiseLingo.  User-defined extensions should use field numbers 11 and greater.
+NoiseLingo only uses field numbers in the range 1-6.  Field numbers up to 10 in these messages are reserved for future use by NoiseLingo.  User-defined extensions should use field numbers 11 and greater.
 
 All NoiseLingo fields have acceptable default values, except `initial_protocol`.  Thus, a zero-length protobuf message is valid in many cases.
+
+\newpage
 
 ## 3.4. NoiseLingo fields
 
 This section explains the usage of each NoiseLingo field:
 
- * `server_name`:  This field states the intended recipient for the message, in case the message is being sent to a transport address (e.g. IP address) that might host multiple recipients (e.g. DNS names).  This field may appear in either the negotiation data or handshake payload, but not both.  Placing the field in the handshake payload only makes sense if this payload is encrypted, and the decrypting server is able to somehow hand off the connection to the intended recipient after decrypting.
+ * `server_name`:  This field states the intended recipient for the message, in case the message is being sent to a transport address (e.g. IP address) that might host multiple recipients (e.g. DNS names).
 
  * `initial_protocol`:  This field states the name of the initiator's initial Noise protocol.  This field must be present.
 
- * `switch_protocol`:  In Request1, this field indicates Noise protocol names which the initiator can support if the responder switches to one of them.  It is OK to list the same value multiple times (this might happen when dealing with aliases; see below).  In Response1, this indicates the responder's decision to switch to the named protocol.
+ * `switch_protocol`:  In the initial request, this field indicates Noise protocol names which the initiator can support if the responder switches to one of them.  It is OK to list the same value multiple times (this might happen when dealing with aliases; see below).  In the response, this indicates the responder's decision to switch to the named protocol.
 
- * `retry_protocol`:  In Request1, this field indicates Noise protocol names which the initiator can support if the responder requests it to retry one of them.  It is OK to list the same value multiple times (this might happen when dealing with aliases; see below).  In Response1, this indicates the responder's decision to ask the initiator to retry with the named protocol.  
+ * `retry_protocol`:  In the initial request, this field indicates Noise protocol names which the initiator can support if the responder requests it to retry with one of them.  It is OK to list the same value multiple times (this might happen when dealing with aliases; see below).  In the response, this indicates the responder's decision to ask the initiator to retry with the named protocol.  
 
- * `rejected_protocol`:  This field lists a protocol name that the server previously returned a `rejected` response for.  This allows a "rejected-retry" sequence where the client attempts a new handshake with a different protocol the server is more likely to support, but lists the `rejected_protocol` so the server can detect a rollback attack, and close the connection if so.  This is less secure than using a `switch_protocol` or `retry_protocol`, but might be preferred on low-end devices.  
+ * `rejected_protocol`:  This field lists a protocol name that the server previously returned a `rejected` response for.  This allows a "rejected-retry" sequence where the client attempts a new handshake with a different protocol the server is more likely to support, but lists the `rejected_protocol` so the server can detect a rollback attack, and close the connection if so.  This is less secure than using a `switch_protocol` or `retry_protocol`, but might be preferred on low-end devices, or if retrofitting negotiation onto a protocol that didn't support it.
 
- * `psk_id`:  This field provides a PSK identifier indicating which PSK will be used if the responder chooses a PSK-based handshake.  This field may appear in either negotiation data or the handshake payload. Placing the PSK identifier in the handshake payload only makes sense if this payload is encrypted, and the PSK isn't required to decrypt it.
+ * `psk_id`:  This field provides a PSK identifier indicating which PSK will be used if the responder chooses a PSK-based handshake.  This field may appear once per handshake in either the initial message's negotiation data or handshake payload. Placing the PSK identifier in the handshake payload only makes sense if this payload is encrypted, and the PSK isn't required to decrypt it.
 
  * `rejected`:  If true, the responder found something wrong with the initiator's initial mesage, and will close the connection after sending this message.  This message is optional for the responder to send (the responder might just close the connection immediatly).
 
@@ -122,11 +112,11 @@ This section explains the usage of each NoiseLingo field:
 
  * `evidence_blob_type`:  This lists identifiers defining various types of evidence that the sender is providing for its static public key.  Supported evidence types are "x509cert" and "x509chain", but users can define additional evidence types.  These values will typically match the values in `evidence_request_type`, but this isn't strictly required.  For example, a single `evidence_request_type` may allow several different `evidence_blob_type` responses.  The indexes in this list correspond to indexes for `evidence_blob`.
 
- * `evidence_blob`:  This lists evidence blobs for the sender's static public key.  The type of each blob is determined by the corresponding `evidence_blob_type` element.  Blobs are likely to contain certificates or signatures for the sender's static public key.  This list can contain one additional element which does not correspond to an `evidence_blob_type` but is assumed to match an implicit evidence type the parties are pre-configured with.   
+ * `evidence_blob`:  This lists evidence blobs for the sender's static public key.  The type of each blob is determined by the corresponding `evidence_blob_type` element.  Blobs are likely to contain certificates or signatures for the sender's static public key.  This list can contain one additional element which does not correspond to an `evidence_blob_type` but is assumed to match an implicit evidence type the parties are pre-configured with.
 
- * `max_send_length`:  Indicates the maximum size of transport messages that the sender will send. 
+ * `max_send_length`:  Indicates the maximum size of transport messages that the sender will send.  Zero is interpreted as 65535 (the maximum), so a nonzero value must be less than 65535.
 
- * `max_recv_length`:  Indicates the maximum size of transport messages that the recipient can send. 
+ * `max_recv_length`:  Indicates the maximum size of transport messages that the recipient can send.   Zero is interpreted as 65535 (the maximum), so a nonzero value must be less than 65535.
 
  * `continuous_rekey`:  Indicates that the sender will rekey the sending cipherstate after sending each transport message.
 
@@ -145,7 +135,7 @@ Aliases should be used with caution, as they can prevent interoperability unless
 
 # 4.  The NLS framework
 
-NLS combines NoiseLingo with NoiseSocket.  The NoiseSocket application prologue is set to "NLS(revision0)".  This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.
+NLS combines NoiseLingo with NoiseSocket.  The NoiseSocket application prologue is set to "NLS(revision1)".  This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.
 
 The NoiseLingoNegotiationData messages are transmitted inside the NoiseSocket `negotiation_data` fields.  If the responder accepts the initiator's `initial_protocol`, the response `negotiation_data` is zero-length (according to NoiseSocket).
 
@@ -179,7 +169,7 @@ message NoiseLinkNegotiationDataRequest1 {
 }
 
 message NoiseLinkHandshakePayloadRequest1 {
-  repeated string evidence_request_type = 2;
+  repeated string evidence_request_type = 1;
 }
 
 message NoiseLinkNegotiationDataResponse1 {
@@ -191,14 +181,14 @@ message NoiseLinkNegotiationDataResponse1 {
 }
 
 message NoiseLinkHandshakePayloadResponse1 {
-  repeated string evidence_request_type = 2;
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
+  repeated string evidence_request_type = 1;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
 }
 
 message NoiseLinkHandshakePayloadRequest2 {
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
 }
 ```
 
@@ -217,53 +207,52 @@ The IK protocols can be chosen as an initial protocol, in which case the client 
 
 \newpage
 
-## 5.3. NoiseShortLink
+## 5.3. NoiseTinyLink
 
-NoiseShortLink is a variant of NoiseLink designed for short messages and constrained devices.
+NoiseTinyLink is a variant of NoiseLink designed for small messages and constrained devices.
 
-NoiseShortLink uses the following Noise protocols:
+NoiseTinyLink defines aliases "1", "2", and "3" as the following Noise protocols:
 
- (1) `Noise_XX_25519_AESGCM_SHA256`
- (2) `Noise_XX_25519_ChaChaPoly_SHA256`
- (3) `Noise_XX_25519_ChaChaPoly_BLAKE2s`
+ * "1" = `Noise_XX_25519_AESGCM_SHA256`
+ * "2" = `Noise_XX_25519_ChaChaPoly_SHA256`
+ * "3" = `Noise_XX_25519_ChaChaPoly_BLAKE2s`
 
-These are assigned aliases "1" through "3", and the initiator indicates their choice using the alias only.  Future versions of this specification may assign values to the aliases "4" through "100".
+The initiator indicates their choice using the alias only.  Future versions of this specification may assign values to the aliases "4" through "100".
 
-It is assumed the responder supports whichever aliases the initiator is configured with.  To keep things simple, NoiseShortLink does not support `switch_protocol` or `retry_protocol`.  To upgrade to a new protocol, either all responders need to be upgraded before any initiators, or initiators must be upgraded to perform "rejected-retry".  Responders are required to send a `rejected` field when rejecting a client's `initial_protocol`, to enable rejected-retry. 
+It is assumed the responder supports whichever aliases the initiator is configured to use.  To keep things simple, NoiseTinyLink does not support `switch_protocol` or `retry_protocol`.  To upgrade to a new protocol, either all responders need to be upgraded before any initiators, or initiators must be upgraded to perform "rejected-retry".  Responders are required to send a `rejected` field when rejecting a client's `initial_protocol`, to enable rejected-retry. 
 
-NoiseShortLink uses the same messages as NoiseLink, except that `max_send_length` and `max_recv_length` are supported to negotiate shorter transport messages.
+NoiseTinyLink assumes the parties are configured with a single evidence blob at most, and does not negotiate its type.
+
+Finally, NoiseTinyLink supports `max_send_length` and `max_recv_length` to negotiate shorter transport messages.
 
 \newpage
 
 ```
-message NoiseShortLinkNegotiationDataRequest1 {
-  string server_name = 1;
+message NoiseTinyLinkNegotiationDataRequest1 {
   string initial_protocol = 2;
   string rejected_protocol = 5;
 }
 
-message NoiseShortLinkHandshakePayloadRequest1 {
-  repeated string evidence_request_type = 2;
+message NoiseTinyLinkHandshakePayloadRequest1 {
 }
 
-message NoiseShortLinkNegotiationDataResponse1 {
+message NoiseTinyLinkNegotiationDataResponse1 {
   bool rejected = 5;
 }
 
-message NoiseShortLinkHandshakePayloadResponse1 {
-  repeated string evidence_request_type = 2;
-  repeated string evidence_blob_type = 3;
-  bytes evidence_blob = 4;
-  NoiseShortLinkTransportOptions transport_options = 5;
+message NoiseTinyLinkHandshakePayloadResponse1 {
+  string evidence_blob_type = 2;
+  bytes evidence_blob = 3;
+  NoiseTinyLinkTransportOptions transport_options = 4;
 }
 
-message NoiseShortLinkHandshakePayloadRequest2 {
-  repeated string evidence_blob_type = 3;
-  bytes evidence_blob = 4;
-  NoiseShortLinkTransportOptions transport_options = 5;
+message NoiseTinyLinkHandshakePayloadRequest2 {
+  string evidence_blob_type = 2;
+  bytes evidence_blob = 3;
+  NoiseTinyLinkTransportOptions transport_options = 4;
 }
 
-message NoiseShortLinkTransportOptions {
+message NoiseTinyLinkTransportOptions {
   uint32 max_send_length = 1;
   uint32 max_recv_length = 2;
 }
@@ -288,7 +277,7 @@ message NoiseAnonBoxNegotiationDataRequest1 {
 }
 
 message NoiseAnonBoxHandshakePayloadRequest1 {
-  NoiseAnonBoxTransportOptions transport_options = 5;
+  NoiseAnonBoxTransportOptions transport_options = 4;
 }
 
 message NoiseAnonBoxTransportOptions {
@@ -316,9 +305,9 @@ message NoiseAuthBoxNegotiationDataRequest1 {
 }
 
 message NoiseAuthBoxHandshakePayloadRequest1 {
-  repeated string evidence_blob_type = 3;
-  repeated bytes evidence_blob = 4;
-  NoiseAuthBoxTransportOptions transport_options = 5;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+  NoiseAuthBoxTransportOptions transport_options = 4;
 }
 
 message NoiseAuthBoxTransportOptions {
