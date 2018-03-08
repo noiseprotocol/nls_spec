@@ -196,7 +196,7 @@ message NoiseLinkHandshakePayloadRequest2 {
 
 ## 5.2. NoiseZeroLink
 
-NoiseZeroLink adds a 0-RTT capability to NoiseLink.  NoiseZeroLink can deliver encrypted and authenticated data in the first handshake payload.
+NoiseZeroLink is a superset of NoiseLink which adds a 0-RTT capability.  NoiseZeroLink can deliver encrypted and authenticated data in the first handshake payload by using the server's static public key.  If the client has an incorrect view of the server's static key, or doesn't know the server's static key, then NoiseZeroLink uses the same 1-RTT `XX` handshake as NoiseLink.
 
 NoiseZeroLink uses the same messages and Noise protocols as NoiseLink, plus two additional protocols:
 

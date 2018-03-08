@@ -170,7 +170,7 @@ message NoiseLinkHandshakePayloadRequest2 {
 }</code></pre>
 
 <h2 id="noisezerolink">5.2. NoiseZeroLink</h2>
-<p>NoiseZeroLink adds a 0-RTT capability to NoiseLink. NoiseZeroLink can deliver encrypted and authenticated data in the first handshake payload.</p>
+<p>NoiseZeroLink is a superset of NoiseLink which adds a 0-RTT capability. NoiseZeroLink can deliver encrypted and authenticated data in the first handshake payload by using the server's static public key. If the client has an incorrect view of the server's static key, or doesn't know the server's static key, then NoiseZeroLink uses the same 1-RTT <code>XX</code> handshake as NoiseLink.</p>
 <p>NoiseZeroLink uses the same messages and Noise protocols as NoiseLink, plus two additional protocols:</p>
 <ul>
 <li><code>Noise_IK_25519_AESGCM_SHA256</code></li>
