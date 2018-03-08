@@ -205,6 +205,9 @@ NoiseZeroLink uses the same messages and Noise protocols as NoiseLink, plus two 
 
 The IK protocols can be chosen as an initial protocol, in which case the client offers the corresponding fallback protocol as a switch protocol in case the server has changed its static public key.
 
+NoiseZeroLink implements the Noise Pipes concept from the Noise specification.
+
+
 \newpage
 
 ## 5.3. NoiseTinyLink
