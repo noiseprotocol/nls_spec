@@ -2,9 +2,9 @@
 title:      'The NLS Framework'
 author:
  - Trevor Perrin (noise@trevp.net)
-revision:   '1'
+revision:   '2'
 status:     'unofficial/unstable'
-date:       '2018-03-05'
+date:       '2018-03-18'
 link-citations: 'true'
 ---
 
@@ -50,7 +50,7 @@ message NoiseLingoNegotiationDataRequest {
   repeated string switch_protocol = 3;
   repeated string retry_protocol = 4;
   string rejected_protocol = 5;
-  bytes psk_id = 6;
+  NoiseLingoHandshakePayload early_payload = 6; 
 }
 
 message NoiseLingoNegotiationDataResponse {
@@ -82,15 +82,28 @@ message NoiseLingoTransportOptions {
 
 ```
 
-## 3.3. NoiseLingo notes
+## 3.3. Mapping NoiseLingo fields to Noise protocol messages
+
+The `NoiseLingoNegotiationDataRequest` and `NoiseLingoNegotiationDataResponse` are exchanged in Alice's initial request and Bob's initial response, respectively.
+
+The `evidence_blob_type` and `evidence_blob` fields can be sent whenever the sender is transmitting a static public key.
+
+The `evidence_request_type` can be sent in the message just before the other party transmits a static public key.
+
+The `transport_options` can be sent in a party's last handshake message.
+
+Any handshake fields in the first message that Bob might need to process in a switch or retry case should be placed in the `early_payload`.  If Bob accepts the initial protocol Bob will use the fields in the handshake payload instead of the `early_payload`.  In a switch or retry case Bob will use the `early_payload` fields.   
+
+Placement of the `psk_id` will depend on the Noise pattern.
+
+## 3.4. NoiseLingo notes
 
 NoiseLingo only uses field numbers in the range 1-6.  Field numbers up to 10 in these messages are reserved for future use by NoiseLingo.  User-defined extensions should use field numbers 11 and greater.
 
 All NoiseLingo fields have acceptable default values, except `initial_protocol`.  Thus, a zero-length protobuf message is valid in many cases.
 
-\newpage
 
-## 3.4. NoiseLingo fields
+## 3.5. NoiseLingo fields
 
 This section explains the usage of each NoiseLingo field:
 
@@ -122,7 +135,7 @@ This section explains the usage of each NoiseLingo field:
 
  * `short_terminated`:  Indicates that the sender will transmit maximum-length transport messages except for a "short" final transport message, at which point the stream is terminated.  If the sender has no plaintext to send in the final transport message, a transport message with zero-length plaintext will be sent.  See NoiseAuthBox and NoiseAnonBox for usage of this feature.
 
-## 3.5. Protocol aliases
+## 3.6. Protocol aliases
 
 Noise protocol names might be long strings, so alias strings are allowed in `initial_protocol`, `switch_protocol`, `retry_protocol`, and `rejected_protocol`.  An alias is any string that is not a Noise protocol name (e.g "1", "2", "aes_protocols", etc.)
 
@@ -149,16 +162,14 @@ If the responder requests to switch to a different protocol, the NoiseLingo mess
 
 ## 5.1. NoiseLink
 
-NoiseLink is intended to be the default and "entry-level" use of Noise.
-
-The NoiseLink profile uses the following Noise protocols:
+NoiseLink is intended to be the default and "entry-level" use of Noise.  The NoiseLink profile uses the following Noise protocols:
 
  * `Noise_XX_25519_AESGCM_SHA256`
  * `Noise_XX_25519_ChaChaPoly_SHA256`
  * `Noise_XXfallback_25519_AESGCM_SHA256`
  * `Noise_XXfallback_25519_ChaChaPoly_SHA256`
 
-The initiator's `initial_protocol` will choose one of the first two.  Thus, an initiator only needs to implement one of these protocols.  For future-proofing, a server must support all of them, and must support the `XX` protocols for `retry_protocol`, and the `XXfallback` protocols for `switch_protocol`.
+An initiator only needs to implement one of of the first two, and offer it as the `initial_protocol`.  A responder must support all of them, and must support the `XX` options for `retry_protocol`, and `XXfallback` for `switch_protocol`.
 
 ```
 message NoiseLinkNegotiationDataRequest1 {
@@ -166,9 +177,10 @@ message NoiseLinkNegotiationDataRequest1 {
   string initial_protocol = 2;
   repeated string switch_protocol = 3;
   repeated string retry_protocol = 4;
+  NoiseLinkEarlyHandshakePayload early_payload = 6;
 }
 
-message NoiseLinkHandshakePayloadRequest1 {
+message NoiseLinkEarlyHandshakePayload {
   repeated string evidence_request_type = 1;
 }
 
@@ -203,9 +215,24 @@ NoiseZeroLink uses the same messages and Noise protocols as NoiseLink, plus two 
  * `Noise_IK_25519_AESGCM_SHA256`
  * `Noise_IK_25519_ChaChaPoly_SHA256`
 
-The IK protocols can be chosen as an initial protocol, in which case the client offers the corresponding fallback protocol as a switch protocol in case the server has changed its static public key.
+The IK protocols can be chosen as an initial protocol, in which case the client offers the corresponding fallback protocol as a switch protocol in case the server has changed its static public key.  In an IK handshake the follow handshake payloads are used:
 
-NoiseZeroLink implements the Noise Pipes concept from the Noise specification.
+```
+message NoiseZeroLinkHandshakePayloadRequest1 {
+  repeated string evidence_request_type = 1;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+}
+
+message NoiseZeroLinkHandshakePayloadResponse1 {
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+}
+```
+
+In the IK case the `evidence_request_type` may be transmitted in both the negotiation data and handshake payload.  The version in negotiation data will be used for switch or retry cases, and the version in the handshake payload will be used if the IK handshake is accepted.
+
+NoiseZeroLink can be viewed as implementing the Noise Pipes concept from the Noise specification.
 
 
 \newpage
@@ -234,9 +261,6 @@ Finally, NoiseTinyLink supports `max_send_length` and `max_recv_length` to negot
 message NoiseTinyLinkNegotiationDataRequest1 {
   string initial_protocol = 2;
   string rejected_protocol = 5;
-}
-
-message NoiseTinyLinkHandshakePayloadRequest1 {
 }
 
 message NoiseTinyLinkNegotiationDataResponse1 {

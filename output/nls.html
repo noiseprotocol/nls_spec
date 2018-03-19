@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Style-Type" content="text/css" />
   <meta name="generator" content="pandoc" />
   <meta name="author" content="Trevor Perrin (noise@trevp.net)" />
-  <meta name="date" content="2018-03-05" />
+  <meta name="date" content="2018-03-18" />
   <title>The NLS Framework</title>
   <style type="text/css">code{white-space: pre;}</style>
   <link rel="stylesheet" href="spec_markdown.css" type="text/css" />
@@ -14,8 +14,8 @@
 <div id="header">
 <h1 class="title">The NLS Framework</h1>
 <b>Author:</b> Trevor Perrin (noise@trevp.net)<br/>
-<b>Revision:</b> 1<br/>
-<b>Date:</b> 2018-03-05<br/>
+<b>Revision:</b> 2<br/>
+<b>Date:</b> 2018-03-18<br/>
 <b>Status:</b> unofficial/unstable<br/>
 <b>PDF:</b> <a href="nls.pdf">nls.pdf</a><br/>
 </div>
@@ -27,9 +27,10 @@
 <li><a href="#the-noiselingo-negotiation-language">3. The NoiseLingo negotiation language</a><ul>
 <li><a href="#noiselingo-overview">3.1. NoiseLingo overview</a></li>
 <li><a href="#noiselingo-definitions">3.2. NoiseLingo definitions</a></li>
-<li><a href="#noiselingo-notes">3.3. NoiseLingo notes</a></li>
-<li><a href="#noiselingo-fields">3.4. NoiseLingo fields</a></li>
-<li><a href="#protocol-aliases">3.5. Protocol aliases</a></li>
+<li><a href="#mapping-noiselingo-fields-to-noise-protocol-messages">3.3. Mapping NoiseLingo fields to Noise protocol messages</a></li>
+<li><a href="#noiselingo-notes">3.4. NoiseLingo notes</a></li>
+<li><a href="#noiselingo-fields">3.5. NoiseLingo fields</a></li>
+<li><a href="#protocol-aliases">3.6. Protocol aliases</a></li>
 </ul></li>
 <li><a href="#the-nls-framework">4. The NLS framework</a></li>
 <li><a href="#basic-profiles">5. Basic profiles</a><ul>
@@ -69,7 +70,7 @@
   repeated string switch_protocol = 3;
   repeated string retry_protocol = 4;
   string rejected_protocol = 5;
-  bytes psk_id = 6;
+  NoiseLingoHandshakePayload early_payload = 6; 
 }
 
 message NoiseLingoNegotiationDataResponse {
@@ -95,11 +96,17 @@ message NoiseLingoTransportOptions {
   bool short_terminated = 4;
 }
 </code></pre>
-<h2 id="noiselingo-notes">3.3. NoiseLingo notes</h2>
+<h2 id="mapping-noiselingo-fields-to-noise-protocol-messages">3.3. Mapping NoiseLingo fields to Noise protocol messages</h2>
+<p>The <code>NoiseLingoNegotiationDataRequest</code> and <code>NoiseLingoNegotiationDataResponse</code> are exchanged in Alice's initial request and Bob's initial response, respectively.</p>
+<p>The <code>evidence_blob_type</code> and <code>evidence_blob</code> fields can be sent whenever the sender is transmitting a static public key.</p>
+<p>The <code>evidence_request_type</code> can be sent in the message just before the other party transmits a static public key.</p>
+<p>The <code>transport_options</code> can be sent in a party's last handshake message.</p>
+<p>Any handshake fields in the first message that Bob might need to process in a switch or retry case should be placed in the <code>early_payload</code>. If Bob accepts the initial protocol Bob will use the fields in the handshake payload instead of the <code>early_payload</code>. In a switch or retry case Bob will use the <code>early_payload</code> fields.</p>
+<p>Placement of the <code>psk_id</code> will depend on the Noise pattern.</p>
+<h2 id="noiselingo-notes">3.4. NoiseLingo notes</h2>
 <p>NoiseLingo only uses field numbers in the range 1-6. Field numbers up to 10 in these messages are reserved for future use by NoiseLingo. User-defined extensions should use field numbers 11 and greater.</p>
 <p>All NoiseLingo fields have acceptable default values, except <code>initial_protocol</code>. Thus, a zero-length protobuf message is valid in many cases.</p>
-
-<h2 id="noiselingo-fields">3.4. NoiseLingo fields</h2>
+<h2 id="noiselingo-fields">3.5. NoiseLingo fields</h2>
 <p>This section explains the usage of each NoiseLingo field:</p>
 <ul>
 <li><p><code>server_name</code>: This field states the intended recipient for the message, in case the message is being sent to a transport address (e.g. IP address) that might host multiple recipients (e.g. DNS names).</p></li>
@@ -117,7 +124,7 @@ message NoiseLingoTransportOptions {
 <li><p><code>continuous_rekey</code>: Indicates that the sender will rekey the sending cipherstate after sending each transport message.</p></li>
 <li><p><code>short_terminated</code>: Indicates that the sender will transmit maximum-length transport messages except for a &quot;short&quot; final transport message, at which point the stream is terminated. If the sender has no plaintext to send in the final transport message, a transport message with zero-length plaintext will be sent. See NoiseAuthBox and NoiseAnonBox for usage of this feature.</p></li>
 </ul>
-<h2 id="protocol-aliases">3.5. Protocol aliases</h2>
+<h2 id="protocol-aliases">3.6. Protocol aliases</h2>
 <p>Noise protocol names might be long strings, so alias strings are allowed in <code>initial_protocol</code>, <code>switch_protocol</code>, <code>retry_protocol</code>, and <code>rejected_protocol</code>. An alias is any string that is not a Noise protocol name (e.g &quot;1&quot;, &quot;2&quot;, &quot;aes_protocols&quot;, etc.)</p>
 <p>An alias may be shorthand for a single protocol name (for <code>initial_protocol</code>, or for <code>switch_protocol</code> and <code>retry_protocol</code> in Response1). An alias might also represent a sequence of protocol names, which are substituted for the alias. If the receiver doesn't recognize an alias they will ignore it, unless that makes the resulting message invalid (e.g. an unrecognized alias in <code>initial_protocol</code>, or in Response1's <code>switch_protocol</code> or <code>retry_protocol</code>).</p>
 <p>An alias should begin with either an ASCII lowercase character or digit, to distinguish it from explicitly-named protocols which will start with capital letters (e.g. &quot;Noise_XX_25519_AESGCM_SHA256&quot;).</p>
@@ -130,23 +137,23 @@ message NoiseLingoTransportOptions {
 
 <h1 id="basic-profiles">5. Basic profiles</h1>
 <h2 id="noiselink">5.1. NoiseLink</h2>
-<p>NoiseLink is intended to be the default and &quot;entry-level&quot; use of Noise.</p>
-<p>The NoiseLink profile uses the following Noise protocols:</p>
+<p>NoiseLink is intended to be the default and &quot;entry-level&quot; use of Noise. The NoiseLink profile uses the following Noise protocols:</p>
 <ul>
 <li><code>Noise_XX_25519_AESGCM_SHA256</code></li>
 <li><code>Noise_XX_25519_ChaChaPoly_SHA256</code></li>
 <li><code>Noise_XXfallback_25519_AESGCM_SHA256</code></li>
 <li><code>Noise_XXfallback_25519_ChaChaPoly_SHA256</code></li>
 </ul>
-<p>The initiator's <code>initial_protocol</code> will choose one of the first two. Thus, an initiator only needs to implement one of these protocols. For future-proofing, a server must support all of them, and must support the <code>XX</code> protocols for <code>retry_protocol</code>, and the <code>XXfallback</code> protocols for <code>switch_protocol</code>.</p>
+<p>An initiator only needs to implement one of of the first two, and offer it as the <code>initial_protocol</code>. A responder must support all of them, and must support the <code>XX</code> options for <code>retry_protocol</code>, and <code>XXfallback</code> for <code>switch_protocol</code>.</p>
 <pre><code>message NoiseLinkNegotiationDataRequest1 {
   string server_name = 1;
   string initial_protocol = 2;
   repeated string switch_protocol = 3;
   repeated string retry_protocol = 4;
+  NoiseLinkEarlyHandshakePayload early_payload = 6;
 }
 
-message NoiseLinkHandshakePayloadRequest1 {
+message NoiseLinkEarlyHandshakePayload {
   repeated string evidence_request_type = 1;
 }
 
@@ -176,8 +183,19 @@ message NoiseLinkHandshakePayloadRequest2 {
 <li><code>Noise_IK_25519_AESGCM_SHA256</code></li>
 <li><code>Noise_IK_25519_ChaChaPoly_SHA256</code></li>
 </ul>
-<p>The IK protocols can be chosen as an initial protocol, in which case the client offers the corresponding fallback protocol as a switch protocol in case the server has changed its static public key.</p>
-<p>NoiseZeroLink implements the Noise Pipes concept from the Noise specification.</p>
+<p>The IK protocols can be chosen as an initial protocol, in which case the client offers the corresponding fallback protocol as a switch protocol in case the server has changed its static public key. In an IK handshake the follow handshake payloads are used:</p>
+<pre><code>message NoiseZeroLinkHandshakePayloadRequest1 {
+  repeated string evidence_request_type = 1;
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+}
+
+message NoiseZeroLinkHandshakePayloadResponse1 {
+  repeated string evidence_blob_type = 2;
+  repeated bytes evidence_blob = 3;
+}</code></pre>
+<p>In the IK case the <code>evidence_request_type</code> may be transmitted in both the negotiation data and handshake payload. The version in negotiation data will be used for switch or retry cases, and the version in the handshake payload will be used if the IK handshake is accepted.</p>
+<p>NoiseZeroLink can be viewed as implementing the Noise Pipes concept from the Noise specification.</p>
 
 <h2 id="noisetinylink">5.3. NoiseTinyLink</h2>
 <p>NoiseTinyLink is a variant of NoiseLink designed for small messages and constrained devices.</p>
@@ -195,9 +213,6 @@ message NoiseLinkHandshakePayloadRequest2 {
 <pre><code>message NoiseTinyLinkNegotiationDataRequest1 {
   string initial_protocol = 2;
   string rejected_protocol = 5;
-}
-
-message NoiseTinyLinkHandshakePayloadRequest1 {
 }
 
 message NoiseTinyLinkNegotiationDataResponse1 {
