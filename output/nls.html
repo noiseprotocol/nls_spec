@@ -130,7 +130,7 @@ message NoiseLingoTransportOptions {
 <p>An alias should begin with either an ASCII lowercase character or digit, to distinguish it from explicitly-named protocols which will start with capital letters (e.g. &quot;Noise_XX_25519_AESGCM_SHA256&quot;).</p>
 <p>Aliases should be used with caution, as they can prevent interoperability unless both parties have agreed on the same aliases.</p>
 <h1 id="the-nls-framework">4. The NLS framework</h1>
-<p>NLS combines NoiseLingo with NoiseSocket. The NoiseSocket application prologue is set to &quot;NLS(revision1)&quot;. This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.</p>
+<p>NLS combines NoiseLingo with NoiseSocket. The NoiseSocket application prologue is set to &quot;NLS(revision2)&quot;. This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.</p>
 <p>The NoiseLingoNegotiationData messages are transmitted inside the NoiseSocket <code>negotiation_data</code> fields. If the responder accepts the initiator's <code>initial_protocol</code>, the response <code>negotiation_data</code> is zero-length (according to NoiseSocket).</p>
 <p>If the responder requests the initiator to retry a different protocol, the initiator's retry message will reset to the NoiseLingo Request1 message, and so on.</p>
 <p>If the responder requests to switch to a different protocol, the NoiseLingo messages will not reset, unless the profile indicates otherwise.</p>
