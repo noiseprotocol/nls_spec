@@ -148,7 +148,7 @@ Aliases should be used with caution, as they can prevent interoperability unless
 
 # 4.  The NLS framework
 
-NLS combines NoiseLingo with NoiseSocket.  The NoiseSocket application prologue is set to "NLS(revision1)".  This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.
+NLS combines NoiseLingo with NoiseSocket.  The NoiseSocket application prologue is set to "NLS(revision2)".  This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.
 
 The NoiseLingoNegotiationData messages are transmitted inside the NoiseSocket `negotiation_data` fields.  If the responder accepts the initiator's `initial_protocol`, the response `negotiation_data` is zero-length (according to NoiseSocket).
 
