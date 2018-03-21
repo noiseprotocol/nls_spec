@@ -132,8 +132,8 @@ message NoiseLingoTransportOptions {
 <h1 id="the-nls-framework">4. The NLS framework</h1>
 <p>NLS combines NoiseLingo with NoiseSocket. The NoiseSocket application prologue is set to &quot;NLS(revision2)&quot;. This will change with every revision of this document to emphasize that this is a work-in-progress, and not to be used except for testing.</p>
 <p>The NoiseLingoNegotiationData messages are transmitted inside the NoiseSocket <code>negotiation_data</code> fields. If the responder accepts the initiator's <code>initial_protocol</code>, the response <code>negotiation_data</code> is zero-length (according to NoiseSocket).</p>
-<p>If the responder requests the initiator to retry a different protocol, the initiator's retry message will reset to the NoiseLingo Request1 message, and so on.</p>
-<p>If the responder requests to switch to a different protocol, the NoiseLingo messages will not reset, unless the profile indicates otherwise.</p>
+<p>If the responder requests the initiator to retry a different protocol, then the responder does not send a Noise message alongside the retry request. The initiator's next message will restart with the NoiseLingo Request1 message, offering the protocol the responder requested to retry. The responder's options at this point are either to accept tihs protocol, or reject it (the responder can't perform a switch or second retry after the first retry).</p>
+<p>If the responder switches to a different protocol, the NoiseLingo messages will not reset, unless the profile indicates otherwise.</p>
 
 <h1 id="basic-profiles">5. Basic profiles</h1>
 <h2 id="noiselink">5.1. NoiseLink</h2>
