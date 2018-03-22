@@ -152,7 +152,7 @@ NLS combines NoiseLingo with NoiseSocket.  The NoiseSocket application prologue 
 
 The NoiseLingoNegotiationData messages are transmitted inside the NoiseSocket `negotiation_data` fields.  If the responder accepts the initiator's `initial_protocol`, the response `negotiation_data` is zero-length (according to NoiseSocket).
 
-If the responder requests the initiator to retry a different protocol, then the responder does not send a Noise message alongside the retry request.  The initiator's next message will restart with the NoiseLingo Request1 message, offering the protocol the responder requested to retry.   The responder's options at this point are either to accept tihs protocol, or reject it (the responder can't perform a switch or second retry after the first retry).
+If the responder requests the initiator to retry a different protocol, then the responder does not send a Noise message alongside the retry request.  The initiator's next message will restart with the NoiseLingo Request1 message, offering the `initial_protocol` the responder requested to retry, and not offering any retry or switch options.   The responder's options at this point are either to accept this protocol, or reject it (the responder can't perform a switch or second retry after the first retry).
 
 If the responder switches to a different protocol, the NoiseLingo messages will not reset, unless the profile indicates otherwise.
 
